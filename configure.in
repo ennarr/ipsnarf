@@ -1,0 +1,154 @@
+# Process this file with autoconf to produce a configure script.
+AC_INIT(src/ipsnarf.c)
+AC_CANONICAL_SYSTEM
+AM_INIT_AUTOMAKE(ipsnarf, 0.1)
+AM_CONFIG_HEADER(include/config.h)
+
+dnl Initialize prefix.
+if test "$prefix" = "NONE"; then
+   prefix="/usr/local"
+fi
+
+# Checks for programs.
+AC_PROG_CC
+AC_PROG_INSTALL
+AC_PROG_LN_S
+
+dnl Set up some operating system specific options
+AC_MSG_CHECKING(for OS specific options)
+case "$host" in
+        *-*-openbsd*)
+                CFLAGS="$CFLAGS -D_REENTRANT -pthread"
+                echo "setting OpenBSD compilation options"
+                ;;
+        *-*-freebsd*)
+                CFLAGS="$CFLAGS -D_THREAD_SAFE -pthread -D_PTHREADS"
+                echo "setting FreeBSD compilation options"
+                ;;
+        *-*-solaris*)
+                CFLAGS="$CFLAGS -D_REENTRANT -D_POSIX_PTHREAD_SEMANTICS -DUSE_SOLARIS"
+                LIBS="$LIBS -lpthread -lposix4"
+                echo "setting Solaris compilation options"
+                ;;
+        *-*-linux*)
+                CFLAGS="$CFLAGS -D_REENTRANT"
+                LIBS="$LIBS -lpthread"
+                echo "setting Linux compilation options"
+                ;;
+        *-*-aix*)
+                CFLAGS="$CFLAGS -D_THREAD_SAFE"
+                LIBS="$LIBS -lc_r -lpthreads"
+                echo "setting AIX compilation options"
+                ;;
+        *)
+                echo "** WARNING: you may need to provide some additional CFLAGS for pthreads to work."
+                ;;
+esac
+
+dnl Checks for libpcap
+AC_MSG_CHECKING(for libpcap)
+AC_ARG_WITH(libpcap,
+[  --with-libpcap=DIR      use libpcap in DIR],
+[ case "$withval" in
+  yes|no)
+     AC_MSG_RESULT(no)
+     ;;
+  *)
+     AC_MSG_RESULT($withval)
+     if test -f $withval/pcap.h -a -f $withval/libpcap.a; then
+        owd=`pwd`
+        if cd $withval; then withval=`pwd`; cd $owd; fi
+        PCAPINC="-I$withval -I$withval/bpf"
+        PCAPLIB="-L$withval -lpcap"
+     elif test -f $withval/include/pcap.h -a \
+               -f $withval/include/net/bpf.h; then
+        owd=`pwd`
+        if cd $withval; then withval=`pwd`; cd $owd; fi
+        PCAPINC="-I$withval -I$withval/bpf"
+        PCAPLIB="-L$withval -lpcap"
+     elif test -f $withval/include/pcap.h -a \
+               -f $withval/include/net/bpf.h; then
+        owd=`pwd`
+        if cd $withval; then withval=`pwd`; cd $owd; fi
+        PCAPINC="-I$withval/include"
+        if test -f $withval/lib/libwpcap.a; then
+           PCAPLIB="-L$withval/lib -lwpcap"
+        else
+           PCAPLIB="-L$withval/lib -lpcap"
+        fi
+     else
+        AC_ERROR(pcap.h, net/bpf.h, or libpcap.a not found in $withval)
+     fi
+     ;;
+  esac ],
+[ if test -f ${prefix}/include/pcap.h; then
+     PCAPINC="-I${prefix}/include"
+     if test -f ${prefix}/lib/libwpcap.a; then
+        PCAPLIB="-L${prefix}/lib -lwpcap"
+     else
+        PCAPLIB="-L${prefix}/lib -lpcap"
+     fi
+  elif test -f /usr/include/pcap/pcap.h; then
+     PCAPINC="-I/usr/include/pcap"
+     PCAPLIB="-lpcap"
+  elif test -f /usr/include/pcap.h; then
+     PCAPLIB="-lpcap"
+  else
+     AC_MSG_RESULT(no)
+     AC_ERROR(libpcap not found)
+  fi
+  AC_MSG_RESULT(yes) ]
+)
+AC_SUBST(PCAPINC)
+AC_SUBST(PCAPLIB)
+
+dnl Checks for libnet
+
+AC_MSG_CHECKING(for libnet)
+AC_ARG_WITH(libnet,
+[  --with-libnet=DIR      use libnnet in DIR],
+[ case "$withval" in
+  yes|no)
+     AC_MSG_RESULT(no)
+     ;;
+  *)
+     AC_MSG_RESULT($withval)
+     if test -x $withval/bin/libnet-config; then
+	LIBNETINC="-I$withval/include"
+        LIBNETDEF="`$withval/bin/libnet-config --defines`"
+        LIBNETLIB="-L$withval/lib `$withval/bin/libnet-config --libs`"
+     else
+        AC_ERROR(libnet-config not found in $withval/bin)
+     fi
+     ;;
+  esac ],
+[ if test -x ${prefix}/bin/libnet-config; then
+     LIBNETDEF="`${prefix}/bin/libnet-config --defines`"
+     LIBNETLIB="-L${prefix}/lib `${prefix}/bin/libnet-config --libs`"
+     LIBNETINC="-I${prefix}/include"
+  elif test -x /usr/bin/libnet-config; then
+     LIBNETDEF="`/usr/bin/libnet-config --defines`"
+     LIBNETLIB="`/usr/bin/libnet-config --libs`"
+  else
+     AC_MSG_RESULT(no)
+     AC_ERROR(libnet not found)
+  fi
+  AC_MSG_RESULT(yes) ]
+)
+AC_SUBST(LIBNETINC)
+AC_SUBST(LIBNETLIB)
+AC_SUBST(LIBNETDEF)
+
+# Checks for header files.
+AC_HEADER_STDC
+AC_CHECK_HEADERS([stdlib.h string.h strings.h unistd.h pthread.h syslog.h])
+
+# Checks for typedefs, structures, and compiler characteristics.
+AC_C_CONST
+AC_STRUCT_TM
+
+# Checks for library functions.
+AC_FUNC_STRFTIME
+AC_CHECK_FUNCS([inet_ntoa strstr])
+
+AC_OUTPUT(Makefile src/Makefile)

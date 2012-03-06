@@ -1,0 +1,4 @@
+* Add support for daemon mode and proper logging - DONE 16/12/03
+* Tarpit functionality
+* IPv6?
+* More options (eg. time between arps/alogorythm tweaks)

@@ -1,0 +1,142 @@
+ipsnarf - a tool to 'occupy' unused IP addresses
+
+Copyright 2003, Nigel Roberts
+
+ipsnarf is licensed under the GPL. Please see the file COPYING
+included with ipsnarf for a copy of the GPL.
+
+Please see http://www.nobiscuit.com/ipsnarf for the latest version of
+ipsnarf.
+
+ipsnarf is designed to listen on one or more ethernet network
+interfaces or sub interfaces and spoof ARP replies for IP addresses it
+determines are unoccupied. This is useful for preventing excessive
+ammounts of ARP on large layer 2 networks and blackholing unused
+addresses. It can also be configured to behave correctly in a switched
+environment. It requires libnet and pcap to compile and run.
+
+ipsnarf has been been compiled and tested on the following systems:
+
+OS		CPU	Kernel		libnet		pcap
+---------------+-------+---------------+---------------+-------------
+Debian 3.0 	x86	2.4.22		1.0.2a		0.6.2
+FreeBSD 4.7 	x86	4.7		1.0.2a		4.7
+Solaris 8	x86	8		1.0.2a		0.6.2
+
+However, ipsnarf should work on any system that can use libnet and
+pcap.
+
+The next version of ipsnarf will probably move to libnet v1.1.1, which
+has a different API and will require some major modifications to
+ipsnarf's arp packet construction code.
+
+Build instructions
+------------------
+
+./configure
+make
+make install
+
+Please see configuration for how to configure ipsnarf
+
+Configuration
+-------------
+
+An example config is included in etc/ipsnarf.conf-dist.
+
+For each interface that you want ipsnarf to operate on, you need to
+construct an interface stanza, begining with an interface
+statement. For each interface stanza, you must include an ip statement
+that you want ipsnarf to use as the source address for ARP requests
+(only used when operating in switchsafe mode), a mac statement to use
+as the source address for all generated packets and one or more
+network statements specifying what IP addresses can be occupied.
+
+Optional statements include switchsafe and exclude, which tell ipsnarf
+if this interface should be operated on in a switch safe fashion and
+to not occupy (send an arp reply for) the specified ip address
+respectively.
+
+An interface stanza ends when a new interface statement is found or
+the end of the file is reached. Comments can be added by begining the
+line with a '#'.
+
+Command Line Options
+--------------------
+
+-p: pretend
+
+Listen only and do not respond to arps, but log when arp would have
+been generated.
+
+-d: no detach
+
+Run in foreground and log to terminal (also logs to syslog).
+
+-s: syslog 
+
+Specify local syslog facility from 0 (local0) to 7 (local7). By
+default ipsnarf will log to LOG_DAEMON (daemon.*). I recommend
+specifying a local syslog facility (eg. 3) and then configuring syslog
+with something like:
+
+local3.info                         /var/local/ipsnarf.log
+
+This will mean all the debug level messages are not logged.
+
+-v: verbose
+
+Specify how verbose you want the logging to be. This applies to both
+logging to the console when operating in the foreground and also
+logging to the syslog. Repeat for yet more debugging information.
+
+-c: config file
+
+Specify a configuration file to use. By default ipsnarf will look for
+/usr/local/etc/ipsnarf.conf if this isn't specified.
+
+How it Works
+------------
+
+I borrowed the alogorythm used to determine when to send an arp reply
+from labrea (http://labrea.sourceforge.net/), which is the following:
+
+  a) If currently stored time is 0 or the arp comes from a
+     different address than the one stored, store the
+     current time and the requesting IP and return.
+
+  b) If the stored time is less than 2 seconds ago,
+     ignore it and return.
+
+  c) If currently stored time is more than a minute ago,
+     store 0, return. (Max timeout)
+
+  d) Otherwise, grab the IP!
+
+Troubleshooting
+---------------
+
+1. Permissions
+
+Make sure you have permissions to read and write to the bpf
+(device). In linux you need to be root, in operating systems that use
+bpf devices, you can change the permissions of the device.
+
+2. Not enough bpf devices
+
+On the BSD's, you need to make sure you have at least _two_ bpf
+devices for each interface you have ipsnarf configured to listen on,
+other wise you might see an error something like this:
+
+ipsnarf: Opening device vlan21025 failed, (no devices found)
+/dev/bpf4: No such file or directory
+
+This can be easily fixed by adding more as you need, using a command
+something like so:
+
+$ cd /dev/ && sh ./MAKEDEV bpf4 bpf5 bpf6 (...)
+
+The above works on FreeBSD, I'm unsure about other unices.
+
+
+
